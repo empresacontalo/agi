@@ -1,0 +1,90 @@
+# =============================================================================
+# Docker Compose — AI Dev Workspace Stack (Docker Swarm / Portainer)
+# =============================================================================
+# Single container with all apps + CLIs:
+#   - OmniRoute  (port 4000)
+#   - Hermes     (port 3000)
+#   - Aion UI    (port 3005)
+#   - Claude Code, Antigravity, OpenCode, CommandCode CLIs
+#
+# Networks:
+#   app_network → Internal overlay for inter-service communication
+#   npm_public  → External overlay for Nginx Proxy Manager
+# =============================================================================
+
+version: "3.8"
+
+services:
+  # -------------------------------------------------------------------------
+  # AI Workspace — All-in-One Container
+  # -------------------------------------------------------------------------
+  ai-workspace:
+    image: ${REGISTRY:-local}/ai-workspace:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${OMNIROUTE_PORT:-4000}:4000"
+      - "${HERMES_PORT:-3000}:3000"
+      - "${AIONUI_PORT:-3005}:3005"
+    networks:
+      - app_network
+      - npm_public
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+    volumes:
+      - omniroute_data:/data/omniroute
+      - hermes_data:/data/hermes
+      - aionui_data:/data/aionui
+      - workspace:/workspace
+      - cli_config:/root/.config
+      - supervisor_logs:/var/log/supervisor
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+      labels:
+        - "com.outsource.service=ai-workspace"
+        - "com.outsource.stack=ai-workspace"
+        - "com.outsource.ports=4000,3000,3005"
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  omniroute_data:
+    driver: local
+  hermes_data:
+    driver: local
+  aionui_data:
+    driver: local
+  workspace:
+    driver: local
+  cli_config:
+    driver: local
+  supervisor_logs:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  # Internal overlay for inter-service communication
+  app_network:
+    driver: overlay
+    internal: true
+    attachable: true
+
+  # External overlay managed by Nginx Proxy Manager
+  npm_public:
+    external: true
