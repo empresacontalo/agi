@@ -1,11 +1,16 @@
 # =============================================================================
 # Docker Compose — AI Dev Workspace Stack (Docker Swarm / Portainer)
 # =============================================================================
-# Single container with all apps + CLIs:
-#   - OmniRoute  (port 4000)
-#   - Hermes     (port 3000)
-#   - Aion UI    (port 3005)
+# Single container with hermes-agent + all UI apps + CLIs:
+#   - hermes-agent gateway  (port 8642) — OpenAI-compatible API + Hermes APIs
+#   - hermes-agent dashboard (port 9119) — sessions, memory, skills, jobs
+#   - OmniRoute             (port 4000) — AI Gateway (proxy/router)
+#   - Hermes Workspace      (port 3000) — Full-featured AI agent UI
+#   - Aion UI               (port 3005) — Code/AI IDE
 #   - Claude Code, Antigravity, OpenCode, CommandCode CLIs
+#
+# hermes-agent runs INSIDE the container. Hermes Workspace and Aion UI
+# connect to it via localhost:8642 and localhost:9119 automatically.
 #
 # Networks:
 #   app_network → Internal overlay for inter-service communication
@@ -16,7 +21,7 @@ version: "3.8"
 
 services:
   # -------------------------------------------------------------------------
-  # AI Workspace — All-in-One Container
+  # AI Workspace — Single Container (all services inside)
   # -------------------------------------------------------------------------
   ai-workspace:
     image: ${REGISTRY:-local}/ai-workspace:${TAG:-latest}
@@ -27,6 +32,9 @@ services:
       - "${OMNIROUTE_PORT:-4000}:4000"
       - "${HERMES_PORT:-3000}:3000"
       - "${AIONUI_PORT:-3005}:3005"
+      # Optionally expose hermes-agent gateway for external API access
+      # Uncomment if you want direct access to the Hermes API from outside
+      # - "${HERMES_GATEWAY_PORT:-8642}:8642"
     networks:
       - app_network
       - npm_public
@@ -39,6 +47,7 @@ services:
       - OMNIROUTE_PORT=${OMNIROUTE_PORT:-4000}
       - HERMES_PORT=${HERMES_PORT:-3000}
       - AIONUI_PORT=${AIONUI_PORT:-3005}
+      # LLM provider keys — used by hermes-agent, OmniRoute, and Aion UI
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
@@ -47,20 +56,29 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      # OmniRoute settings
       - OMNIROUTE_DEFAULT_PROVIDER=${OMNIROUTE_DEFAULT_PROVIDER:-openai}
       - OMNIROUTE_LOG_LEVEL=${OMNIROUTE_LOG_LEVEL:-info}
       - OMNIROUTE_RATE_LIMIT=${OMNIROUTE_RATE_LIMIT:-100}
       - OMNIROUTE_ENABLE_CACHE=${OMNIROUTE_ENABLE_CACHE:-true}
-      - HERMES_API_URL=${HERMES_API_URL:-http://localhost:4000}
-      - HERMES_DASHBOARD_URL=${HERMES_DASHBOARD_URL:-http://localhost:4000}
+      # hermes-agent — gateway API server auth key
+      # Generated once: openssl rand -hex 32
+      # Used by entrypoint.sh to configure the gateway, and passed to
+      # hermes-workspace as HERMES_API_TOKEN automatically via supervisord.
+      - API_SERVER_KEY=${API_SERVER_KEY}
+      # Hermes Workspace settings
+      # HERMES_API_URL and HERMES_DASHBOARD_URL are set to localhost inside
+      # supervisord.conf — no need to set them here.
       - HERMES_SECRET_KEY=${HERMES_SECRET_KEY}
       - HERMES_SESSION_SECRET=${HERMES_SESSION_SECRET:-change-me-in-production}
       - HERMES_PASSWORD=${HERMES_PASSWORD}
       - HERMES_ALLOW_INSECURE_REMOTE=${HERMES_ALLOW_INSECURE_REMOTE:-0}
       - COOKIE_SECURE=${COOKIE_SECURE:-0}
+      # Aion UI
       - AION_API_URL=${AION_API_URL:-http://localhost:4000}
       - AION_HERMES_URL=${AION_HERMES_URL:-http://localhost:3000}
       - AION_SECRET_KEY=${AION_SECRET_KEY}
+      # CLI tools
       - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY}
       - CLAUDE_CODE_MODEL=${CLAUDE_CODE_MODEL:-claude-sonnet-4-20250514}
       - ANTIGRAVITY_API_KEY=${ANTIGRAVITY_API_KEY}
@@ -70,7 +88,8 @@ services:
       - COMMANDCODE_AUTH_TOKEN=${COMMANDCODE_AUTH_TOKEN}
     volumes:
       - omniroute_data:/data/omniroute
-      - hermes_data:/data/hermes
+      # hermes-agent persistent data: config, sessions, memory, skills, credentials
+      - hermes_data:/opt/data
       - aionui_data:/data/aionui
       - workspace:/workspace
       - cli_config:/root/.config
@@ -84,7 +103,7 @@ services:
         window: 120s
       resources:
         limits:
-          memory: 2G
+          memory: 3G
         reservations:
           memory: 1G
       labels:
@@ -98,6 +117,8 @@ services:
 volumes:
   omniroute_data:
     driver: local
+  # hermes_data — persists hermes-agent state across container restarts:
+  #   config, sessions, memory, skills, credentials, scheduled jobs
   hermes_data:
     driver: local
   aionui_data:

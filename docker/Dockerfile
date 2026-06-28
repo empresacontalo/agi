@@ -1,39 +1,39 @@
 # =============================================================================
 # Dockerfile — AI Dev Workspace (Single Container)
 # =============================================================================
-# Container único com TODOS os apps e CLIs:
-#   - OmniRoute (port 4000)
-#   - Hermes Workspace (port 3000)
-#   - Aion UI (port 3005)
-#   - Claude Code CLI
-#   - Antigravity CLI
-#   - OpenCode CLI
-#   - CommandCode CLI
+# Base: nousresearch/hermes-agent:latest
+#   → Provides: hermes-agent (Python), gateway (:8642), dashboard (:9119)
 #
-# Usa supervisord para gerenciar múltiplos processos.
-# Aion UI e Hermes autodetectam os CLIs no mesmo container.
+# Added on top:
+#   - Node.js 22 + npm
+#   - Bun runtime
+#   - pnpm
+#   - OmniRoute AI Gateway     (port 4000)
+#   - Hermes Workspace UI      (port 3000)
+#   - Aion UI                  (port 3005)
+#   - Claude Code, Antigravity, OpenCode, CommandCode CLIs
+#
+# Process manager: supervisord (OmniRoute + Hermes Workspace + Aion UI)
+# hermes gateway + dashboard are started by entrypoint.sh before supervisord.
 # =============================================================================
 
-FROM node:22-slim
+FROM nousresearch/hermes-agent:latest
 
 LABEL maintainer="Bruno <brunomiguel@outsourc-e.com>"
-LABEL description="AI Dev Workspace — all apps + CLI tools in one container"
+LABEL description="AI Dev Workspace — hermes-agent + all UI apps + CLI tools in one container"
 
 # Avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ---------------------------------------------------------------------------
-# System Dependencies
+# System Dependencies (additional, not in hermes-agent base)
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
     curl \
     wget \
     ca-certificates \
     gnupg \
     build-essential \
-    python3 \
-    python3-pip \
     jq \
     unzip \
     openssh-client \
@@ -41,13 +41,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# CLI Tools Installation (globally available)
+# Node.js 22 (via NodeSource — hermes-agent base is Debian-based)
+# ---------------------------------------------------------------------------
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Bun runtime
+# ---------------------------------------------------------------------------
+RUN npm install -g bun
+
+# ---------------------------------------------------------------------------
+# pnpm (used by Hermes Workspace)
+# ---------------------------------------------------------------------------
+RUN npm install -g pnpm
+
+# ---------------------------------------------------------------------------
+# CLI Tools (globally available in the workspace)
 # ---------------------------------------------------------------------------
 
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code@latest
 
-# Antigravity CLI (via npm)
+# Antigravity CLI
 RUN npm install -g antigravity@latest
 
 # OpenCode CLI
@@ -74,10 +91,9 @@ RUN npm run build
 ARG HERMES_VERSION=main
 
 RUN git clone --depth 1 --branch ${HERMES_VERSION} \
-    https://github.com/outsourc-e/hermes-workspace.git /opt/hermes
+    https://github.com/outsourc-e/hermes-workspace.git /opt/hermes-workspace
 
-RUN npm install -g pnpm
-WORKDIR /opt/hermes
+WORKDIR /opt/hermes-workspace
 RUN pnpm install
 RUN pnpm build
 
@@ -89,12 +105,10 @@ ARG AIONUI_VERSION=main
 RUN git clone --depth 1 --branch ${AIONUI_VERSION} \
     https://github.com/iofficeai/aionui.git /opt/aionui
 
-# Aion UI uses Bun workspaces and the "workspace:" protocol
-RUN npm install -g bun
-
 WORKDIR /opt/aionui
-# Remove conflicting direct dependency override to prevent EOVERRIDE error in npm install
-RUN jq 'del(.overrides["@codemirror/language"])' package.json > package.json.tmp && mv package.json.tmp package.json
+# Remove conflicting direct dependency override to prevent EOVERRIDE error
+RUN jq 'del(.overrides["@codemirror/language"])' package.json > package.json.tmp \
+    && mv package.json.tmp package.json
 RUN bun install
 RUN node scripts/prepareAioncore.js
 RUN bun run package
@@ -107,26 +121,36 @@ RUN mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # ---------------------------------------------------------------------------
+# Entrypoint (initializes hermes-agent config, then starts supervisord)
+# ---------------------------------------------------------------------------
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ---------------------------------------------------------------------------
 # Volumes & Workspace
 # ---------------------------------------------------------------------------
-RUN mkdir -p /workspace /data/omniroute /data/hermes /data/aionui
+RUN mkdir -p /workspace /data/omniroute /data/hermes-workspace /data/aionui
 
 WORKDIR /workspace
 
 # ---------------------------------------------------------------------------
 # Expose Ports
 # ---------------------------------------------------------------------------
-EXPOSE 4000 3000 3005
+# 8642 — hermes-agent gateway (OpenAI-compatible API)
+# 9119 — hermes-agent dashboard (internal, optional exposure)
+# 4000 — OmniRoute AI Gateway
+# 3000 — Hermes Workspace UI
+# 3005 — Aion UI
+EXPOSE 8642 9119 4000 3000 3005
 
 # ---------------------------------------------------------------------------
 # Health Check
 # ---------------------------------------------------------------------------
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:4000/health 2>/dev/null || \
-        curl -f http://localhost:3000/ 2>/dev/null || \
-        curl -f http://localhost:3005/ 2>/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+    CMD curl -f http://localhost:8642/health 2>/dev/null && \
+        curl -f http://localhost:3000/ 2>/dev/null || exit 1
 
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/entrypoint.sh"]
