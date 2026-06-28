@@ -66,6 +66,7 @@ RUN git clone --depth 1 --branch ${OMNIROUTE_VERSION} \
 
 WORKDIR /opt/omniroute
 RUN npm install --production 2>/dev/null || npm install
+RUN npm run build
 
 # ---------------------------------------------------------------------------
 # App 2: Hermes Workspace (port 3000)
@@ -75,9 +76,10 @@ ARG HERMES_VERSION=main
 RUN git clone --depth 1 --branch ${HERMES_VERSION} \
     https://github.com/outsourc-e/hermes-workspace.git /opt/hermes
 
+RUN npm install -g pnpm
 WORKDIR /opt/hermes
-RUN npm install
-RUN npm run build 2>/dev/null || echo "No build step needed"
+RUN pnpm install
+RUN pnpm build
 
 # ---------------------------------------------------------------------------
 # App 3: Aion UI (port 3005)
@@ -94,7 +96,8 @@ WORKDIR /opt/aionui
 # Remove conflicting direct dependency override to prevent EOVERRIDE error in npm install
 RUN jq 'del(.overrides["@codemirror/language"])' package.json > package.json.tmp && mv package.json.tmp package.json
 RUN bun install
-RUN bun run build 2>/dev/null || echo "No build step needed"
+RUN bun run build:renderer:web
+RUN node scripts/build-server.mjs
 
 # ---------------------------------------------------------------------------
 # Supervisord Configuration

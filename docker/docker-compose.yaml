@@ -32,6 +32,8 @@ services:
       - npm_public
     environment:
       - NODE_ENV=${NODE_ENV:-production}
+      - HOST=0.0.0.0
+      - AIONUI_HOST=0.0.0.0
       - TAG=${TAG:-latest}
       - REGISTRY=${REGISTRY:-local}
       - OMNIROUTE_PORT=${OMNIROUTE_PORT:-4000}
