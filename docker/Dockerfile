@@ -87,11 +87,14 @@ ARG AIONUI_VERSION=main
 RUN git clone --depth 1 --branch ${AIONUI_VERSION} \
     https://github.com/iofficeai/aionui.git /opt/aionui
 
+# Aion UI uses Bun workspaces and the "workspace:" protocol
+RUN npm install -g bun
+
 WORKDIR /opt/aionui
 # Remove conflicting direct dependency override to prevent EOVERRIDE error in npm install
 RUN jq 'del(.overrides["@codemirror/language"])' package.json > package.json.tmp && mv package.json.tmp package.json
-RUN npm install
-RUN npm run build 2>/dev/null || echo "No build step needed"
+RUN bun install
+RUN bun run build 2>/dev/null || echo "No build step needed"
 
 # ---------------------------------------------------------------------------
 # Supervisord Configuration
