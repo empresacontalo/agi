@@ -96,8 +96,8 @@ WORKDIR /opt/aionui
 # Remove conflicting direct dependency override to prevent EOVERRIDE error in npm install
 RUN jq 'del(.overrides["@codemirror/language"])' package.json > package.json.tmp && mv package.json.tmp package.json
 RUN bun install
-RUN bun run build:renderer:web
-RUN node scripts/build-server.mjs
+RUN node scripts/prepareAioncore.js
+RUN bun run package
 
 # ---------------------------------------------------------------------------
 # Supervisord Configuration
