@@ -28,9 +28,10 @@ mkdir -p "$LOG_DIR"
 
 cd /opt/omniroute
 PORT=4000 HOST=0.0.0.0 NODE_ENV="${NODE_ENV:-production}" \
-    node /opt/omniroute/dist/index.js \
+    npm start \
     >> "$LOG_DIR/omniroute.log" 2>&1 &
 OMNIROUTE_PID=$!
+
 
 
 # Wait for OmniRoute to be ready
