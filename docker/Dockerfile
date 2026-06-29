@@ -136,15 +136,28 @@ RUN mkdir -p /workspace /data/omniroute /data/hermes-workspace /data/aionui \
 WORKDIR /workspace
 
 # Disable hermes-agent built-in s6 services — we manage them via supervisord.
-# The `down` file alone is unreliable for bundle-compiled or dependency-pulled services.
-# Overwriting the run script with /bin/true is the only guaranteed suppression method.
-RUN for svc in main-hermes dashboard; do \
-      svcdir=$(find /etc/s6-overlay/s6-rc.d -maxdepth 1 -type d -name "$svc" 2>/dev/null | head -1); \
-      if [ -n "$svcdir" ]; then \
-        printf '#!/bin/execlineb -P\n/bin/true\n' > "$svcdir/run" && chmod +x "$svcdir/run"; \
-        touch "$svcdir/down"; \
-      fi; \
-    done || true
+#
+# s6-overlay v3 compiles service definitions into a binary bundle at BASE IMAGE
+# build time. Modifying source files in s6-rc.d has no effect unless the bundle
+# is recompiled. Strategy:
+#   1. Remove services from user/contents.d so s6-rc excludes them from the bundle
+#   2. Recompile the s6-rc database so the change is active at runtime
+RUN \
+    # Step 1: Remove from user bundle manifest
+    rm -f /etc/s6-overlay/s6-rc.d/user/contents.d/main-hermes \
+          /etc/s6-overlay/s6-rc.d/user/contents.d/dashboard 2>/dev/null || true; \
+    \
+    # Step 2: Find the compiled database and recompile
+    COMPILED=$(find / -maxdepth 8 -path '*/s6-overlay/compiled' -type d 2>/dev/null | head -1); \
+    if [ -n "$COMPILED" ]; then \
+      echo "[s6-disable] Recompiling bundle at: $COMPILED"; \
+      s6-rc-compile "${COMPILED}.tmp" /etc/s6-overlay/s6-rc.d \
+        && rm -rf "$COMPILED" \
+        && mv "${COMPILED}.tmp" "$COMPILED" \
+        && echo "[s6-disable] Bundle recompiled — main-hermes and dashboard excluded"; \
+    else \
+      echo "[s6-disable] WARNING: compiled bundle not found, services may still start"; \
+    fi || true
 
 
 
