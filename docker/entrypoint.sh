@@ -18,18 +18,20 @@ set -e
 
 HERMES_HOME="${HERMES_HOME:-/opt/data}"
 HERMES_ENV_FILE="$HERMES_HOME/.env"
+LOG_DIR="$HERMES_HOME/logs"
 
 # ---------------------------------------------------------------------------
 # Step 1: Start OmniRoute first so hermes-agent has an LLM backend
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Starting OmniRoute AI Gateway on :4000..."
-mkdir -p /var/log/supervisor
+mkdir -p "$LOG_DIR"
 
 cd /opt/omniroute
 PORT=4000 HOST=0.0.0.0 NODE_ENV="${NODE_ENV:-production}" \
     node /opt/omniroute/dist/index.js \
-    >> /var/log/supervisor/omniroute.log 2>&1 &
+    >> "$LOG_DIR/omniroute.log" 2>&1 &
 OMNIROUTE_PID=$!
+
 
 # Wait for OmniRoute to be ready
 echo "[entrypoint] Waiting for OmniRoute (:4000)..."
@@ -106,13 +108,14 @@ export HOME="$HERMES_HOME"
 echo "[entrypoint] Starting hermes gateway on :8642..."
 hermes gateway run \
     --no-tui \
-    >> /var/log/supervisor/hermes-gateway.log 2>&1 &
+    >> "$LOG_DIR/hermes-gateway.log" 2>&1 &
 GATEWAY_PID=$!
 
 echo "[entrypoint] Starting hermes dashboard on :9119..."
 hermes dashboard \
-    >> /var/log/supervisor/hermes-dashboard.log 2>&1 &
+    >> "$LOG_DIR/hermes-dashboard.log" 2>&1 &
 DASHBOARD_PID=$!
+
 
 # Wait for gateway to be healthy before starting the workspace
 echo "[entrypoint] Waiting for hermes gateway health check..."

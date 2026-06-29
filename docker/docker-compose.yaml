@@ -95,7 +95,8 @@ services:
       - aionui_data:/data/aionui
       - workspace:/workspace
       - cli_config:/root/.config
-      - supervisor_logs:/var/log/supervisor
+
+
     deploy:
       replicas: 1
       restart_policy:
@@ -129,8 +130,7 @@ volumes:
     driver: local
   cli_config:
     driver: local
-  supervisor_logs:
-    driver: local
+
 
 # =============================================================================
 # Networks
