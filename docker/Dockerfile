@@ -130,9 +130,10 @@ RUN chmod +x /entrypoint.sh
 # Volumes & Workspace
 # ---------------------------------------------------------------------------
 RUN mkdir -p /workspace /data/omniroute /data/hermes-workspace /data/aionui \
-    && chown -R hermes:hermes /workspace /data /var/log/supervisor /opt/omniroute /opt/hermes-workspace /opt/aionui
+    && chown -R hermes:hermes /workspace /data /var/log/supervisor
 
 WORKDIR /workspace
+
 
 
 # ---------------------------------------------------------------------------
