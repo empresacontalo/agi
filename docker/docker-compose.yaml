@@ -29,12 +29,26 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${OMNIROUTE_PORT:-4000}:4000"
-      - "${HERMES_PORT:-3000}:3000"
-      - "${AIONUI_PORT:-3005}:3005"
+      # mode: host binds directly to the node IP — required for NPM reverse proxy
+      # to reach services reliably in Swarm (bypasses ingress VIP which causes 502s).
+      # In NPM, set upstream to: <node-ip>:4000 / <node-ip>:3000 / <node-ip>:3005
+      - target: 4000
+        published: ${OMNIROUTE_PORT:-4000}
+        protocol: tcp
+        mode: host
+      - target: 3000
+        published: ${HERMES_PORT:-3000}
+        protocol: tcp
+        mode: host
+      - target: 3005
+        published: ${AIONUI_PORT:-3005}
+        protocol: tcp
+        mode: host
       # Optionally expose hermes-agent gateway for external API access
-      # Uncomment if you want direct access to the Hermes API from outside
-      # - "${HERMES_GATEWAY_PORT:-8642}:8642"
+      # - target: 8642
+      #   published: ${HERMES_GATEWAY_PORT:-8642}
+      #   protocol: tcp
+      #   mode: host
     networks:
       - app_network
       - npm_public
