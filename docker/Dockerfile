@@ -135,6 +135,11 @@ RUN mkdir -p /workspace /data/omniroute /data/hermes-workspace /data/aionui \
 
 WORKDIR /workspace
 
+# Disable hermes-agent built-in s6 services since we manage them via supervisord
+RUN mkdir -p /etc/s6-overlay/s6-rc.d/main-hermes /etc/s6-overlay/s6-rc.d/dashboard \
+    && touch /etc/s6-overlay/s6-rc.d/main-hermes/down \
+    && touch /etc/s6-overlay/s6-rc.d/dashboard/down || true
+
 
 
 # ---------------------------------------------------------------------------

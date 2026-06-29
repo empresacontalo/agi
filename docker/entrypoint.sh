@@ -3,15 +3,14 @@
 # entrypoint.sh — AI Workspace Container Startup
 # =============================================================================
 # Initialization order:
-#   1. Start OmniRoute in background (LLM router — hermes-agent depends on it)
-#   2. Wait for OmniRoute to be healthy on :4000
-#   3. Bootstrap hermes-agent config — pointing LLM to OmniRoute at :4000
-#   4. Start hermes gateway (API server on :8642)
-#   5. Start hermes dashboard (API on :9119)
-#   6. Wait for gateway to be healthy
-#   7. Exec supervisord (Hermes Workspace :3000, Aion UI :3005)
-#      Note: supervisord only manages Hermes Workspace + Aion UI here.
-#            OmniRoute is already running from step 1.
+#   1. Fix volume permissions (since Docker mounts them as root by default)
+#   2. Bootstrap hermes-agent config (.env) pointing LLM to OmniRoute
+#   3. Exec supervisord which manages all services:
+#      - OmniRoute (4000)
+#      - hermes-gateway (8642, waits for OmniRoute)
+#      - hermes-dashboard (9119, waits for OmniRoute)
+#      - hermes-workspace (3000)
+#      - aionui (3005)
 # =============================================================================
 
 set -e
@@ -21,44 +20,16 @@ HERMES_ENV_FILE="$HERMES_HOME/.env"
 LOG_DIR="$HERMES_HOME/logs"
 
 # ---------------------------------------------------------------------------
-# Step 1: Start OmniRoute first so hermes-agent has an LLM backend
+# Step 1: Pre-flight checks & permissions
 # ---------------------------------------------------------------------------
-echo "[entrypoint] Starting OmniRoute AI Gateway on :4000..."
-mkdir -p "$LOG_DIR"
-
-# Fix permissions for volumes mounted by Docker (which default to root:root)
 echo "[entrypoint] Fixing volume permissions for hermes user..."
+mkdir -p "$LOG_DIR"
 chown -R hermes:hermes "$HERMES_HOME" /workspace /data 2>/dev/null || true
-
-cd /opt/omniroute
-PORT=4000 HOST=0.0.0.0 NODE_ENV="${NODE_ENV:-production}" \
-    npm start \
-    >> "$LOG_DIR/omniroute.log" 2>&1 &
-OMNIROUTE_PID=$!
-
-
-
-# Wait for OmniRoute to be ready
-echo "[entrypoint] Waiting for OmniRoute (:4000)..."
-MAX_WAIT=30
-WAITED=0
-until curl -sf http://localhost:4000/health > /dev/null 2>&1 || \
-      curl -sf http://localhost:4000/v1/models > /dev/null 2>&1; do
-    if [ $WAITED -ge $MAX_WAIT ]; then
-        echo "[entrypoint] WARNING: OmniRoute did not respond in ${MAX_WAIT}s, continuing..."
-        break
-    fi
-    sleep 2
-    WAITED=$((WAITED + 2))
-    echo "[entrypoint] ...waiting for OmniRoute (${WAITED}s)..."
-done
-echo "[entrypoint] OmniRoute is up!"
 
 # ---------------------------------------------------------------------------
 # Step 2: Bootstrap hermes-agent config
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Bootstrapping hermes-agent config..."
-mkdir -p "$HERMES_HOME"
 
 # Write hermes-agent .env — all config is driven by Docker env vars.
 # OPENAI_BASE_URL points hermes-agent to OmniRoute as its LLM backend.
@@ -91,60 +62,15 @@ HERMES_DASHBOARD_PORT=9119
 
 # ── Provider keys (OmniRoute reads these too via Docker env) ─────────────────
 # These are passed through from Docker env vars — no need to duplicate here.
-# OmniRoute already has access to them via docker-compose environment section.
 EOF
+
+# Make sure .env belongs to hermes too
+chown hermes:hermes "$HERMES_ENV_FILE" 2>/dev/null || true
 
 echo "[entrypoint] hermes config written to $HERMES_ENV_FILE"
 
 # ---------------------------------------------------------------------------
-# Step 3: Start hermes-agent gateway and dashboard
+# Step 3: Start supervisord (manages all services)
 # ---------------------------------------------------------------------------
-
-# Activate hermes Python venv
-if [ -f "/opt/hermes/.venv/bin/activate" ]; then
-    # shellcheck disable=SC1091
-    . /opt/hermes/.venv/bin/activate
-fi
-
-# Ensure hermes binary is in PATH
-export PATH="/opt/hermes/.venv/bin:/usr/local/bin:$PATH"
-export HOME="$HERMES_HOME"
-
-echo "[entrypoint] Starting hermes gateway on :8642..."
-hermes gateway run \
-    --no-tui \
-    >> "$LOG_DIR/hermes-gateway.log" 2>&1 &
-GATEWAY_PID=$!
-
-echo "[entrypoint] Starting hermes dashboard on :9119..."
-hermes dashboard \
-    >> "$LOG_DIR/hermes-dashboard.log" 2>&1 &
-DASHBOARD_PID=$!
-
-
-# Wait for gateway to be healthy before starting the workspace
-echo "[entrypoint] Waiting for hermes gateway health check..."
-MAX_WAIT=60
-WAITED=0
-until curl -sf http://localhost:8642/health > /dev/null 2>&1; do
-    if [ $WAITED -ge $MAX_WAIT ]; then
-        echo "[entrypoint] WARNING: gateway did not respond in ${MAX_WAIT}s, continuing anyway..."
-        break
-    fi
-    sleep 2
-    WAITED=$((WAITED + 2))
-    echo "[entrypoint] ...waiting for gateway (${WAITED}s)..."
-done
-
-if curl -sf http://localhost:8642/health > /dev/null 2>&1; then
-    echo "[entrypoint] hermes gateway is healthy!"
-else
-    echo "[entrypoint] hermes gateway may not be ready — proceeding anyway"
-fi
-
-# ---------------------------------------------------------------------------
-# Step 4: Start supervisord for remaining UI apps (Hermes Workspace + Aion UI)
-# OmniRoute is already running from step 1, so supervisord skips it.
-# ---------------------------------------------------------------------------
-echo "[entrypoint] Starting supervisord (Hermes Workspace, Aion UI)..."
+echo "[entrypoint] Starting supervisord..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
