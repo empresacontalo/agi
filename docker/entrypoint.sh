@@ -26,6 +26,10 @@ LOG_DIR="$HERMES_HOME/logs"
 echo "[entrypoint] Starting OmniRoute AI Gateway on :4000..."
 mkdir -p "$LOG_DIR"
 
+# Fix permissions for volumes mounted by Docker (which default to root:root)
+echo "[entrypoint] Fixing volume permissions for hermes user..."
+chown -R hermes:hermes "$HERMES_HOME" /workspace /data 2>/dev/null || true
+
 cd /opt/omniroute
 PORT=4000 HOST=0.0.0.0 NODE_ENV="${NODE_ENV:-production}" \
     npm start \
