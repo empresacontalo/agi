@@ -135,10 +135,16 @@ RUN mkdir -p /workspace /data/omniroute /data/hermes-workspace /data/aionui \
 
 WORKDIR /workspace
 
-# Disable hermes-agent built-in s6 services since we manage them via supervisord
-RUN mkdir -p /etc/s6-overlay/s6-rc.d/main-hermes /etc/s6-overlay/s6-rc.d/dashboard \
-    && touch /etc/s6-overlay/s6-rc.d/main-hermes/down \
-    && touch /etc/s6-overlay/s6-rc.d/dashboard/down || true
+# Disable hermes-agent built-in s6 services — we manage them via supervisord.
+# The `down` file alone is unreliable for bundle-compiled or dependency-pulled services.
+# Overwriting the run script with /bin/true is the only guaranteed suppression method.
+RUN for svc in main-hermes dashboard; do \
+      svcdir=$(find /etc/s6-overlay/s6-rc.d -maxdepth 1 -type d -name "$svc" 2>/dev/null | head -1); \
+      if [ -n "$svcdir" ]; then \
+        printf '#!/bin/execlineb -P\n/bin/true\n' > "$svcdir/run" && chmod +x "$svcdir/run"; \
+        touch "$svcdir/down"; \
+      fi; \
+    done || true
 
 
 
