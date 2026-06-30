@@ -75,6 +75,9 @@ services:
       - OMNIROUTE_LOG_LEVEL=${OMNIROUTE_LOG_LEVEL:-info}
       - OMNIROUTE_RATE_LIMIT=${OMNIROUTE_RATE_LIMIT:-100}
       - OMNIROUTE_ENABLE_CACHE=${OMNIROUTE_ENABLE_CACHE:-true}
+      - REQUIRE_API_KEY=${REQUIRE_API_KEY:-true}
+      # This is the API Key that hermes-agent will use to authenticate with OmniRoute
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
       # hermes-agent — gateway API server auth key
       # Generated once: openssl rand -hex 32
       # Used by entrypoint.sh to configure the gateway, and passed to
