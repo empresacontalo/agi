@@ -93,6 +93,10 @@ services:
       - HERMES_PASSWORD=${HERMES_PASSWORD}
       - HERMES_ALLOW_INSECURE_REMOTE=${HERMES_ALLOW_INSECURE_REMOTE:-0}
       - COOKIE_SECURE=${COOKIE_SECURE:-0}
+      # Persist session tokens & identity to the hermes_data volume.
+      # Without this, tokens are written to /root/.hermes (not persisted)
+      # and every container restart invalidates cookies → terminal 401.
+      - HERMES_HOME=/opt/data/hermes
       # Aion UI
       - AION_API_URL=${AION_API_URL:-http://localhost:4000}
       - AION_HERMES_URL=${AION_HERMES_URL:-http://localhost:3000}
@@ -102,7 +106,7 @@ services:
       - CLAUDE_CODE_MODEL=${CLAUDE_CODE_MODEL:-claude-sonnet-4-20250514}
       - ANTIGRAVITY_API_KEY=${ANTIGRAVITY_API_KEY}
       - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
-      - OPENCODE_PROVIDER=${OPENCODE_PROVIDER:-anthropic}
+      - OPENCODE_PROVIDER=${OPENCODE_PROVIDER:-free}
       - OPENCODE_API_KEY=${OPENCODE_API_KEY}
       - COMMANDCODE_AUTH_TOKEN=${COMMANDCODE_AUTH_TOKEN}
     volumes:

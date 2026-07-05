@@ -24,7 +24,7 @@ LOG_DIR="$HERMES_HOME/logs"
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Fixing volume permissions for hermes user..."
 mkdir -p "$LOG_DIR"
-chown -R hermes:hermes "$HERMES_HOME" /workspace /data 2>/dev/null || true
+chown -R hermes:hermes /opt/data /workspace /data 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Step 2: Bootstrap hermes-agent config
