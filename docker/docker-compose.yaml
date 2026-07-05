@@ -97,6 +97,7 @@ services:
       # Without this, tokens are written to /root/.hermes (not persisted)
       # and every container restart invalidates cookies → terminal 401.
       - HERMES_HOME=/opt/data/hermes
+      - HERMES_YOLO_MODE=1
       # Aion UI
       - AION_API_URL=${AION_API_URL:-http://localhost:4000}
       - AION_HERMES_URL=${AION_HERMES_URL:-http://localhost:3000}
