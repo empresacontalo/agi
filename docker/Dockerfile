@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     openssh-client \
     supervisor \
+    libreoffice \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
