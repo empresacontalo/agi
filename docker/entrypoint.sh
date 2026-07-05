@@ -73,7 +73,7 @@ echo "[entrypoint] hermes config written to $HERMES_ENV_FILE"
 # Step 3: Configure hermes approvals
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Configuring hermes approvals.mode to off for headless execution..."
-su -s /bin/bash -c "HOME=/opt/data/hermes hermes config set approvals.mode off" hermes 2>/dev/null || true
+su -s /bin/bash -c "HOME=/opt/data/hermes /opt/hermes/.venv/bin/hermes config set approvals.mode off" hermes || true
 
 # ---------------------------------------------------------------------------
 # Step 4: Start supervisord (manages all services)
