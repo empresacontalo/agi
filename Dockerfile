@@ -109,7 +109,10 @@ ARG HERMES_VERSION=main
 RUN git clone --depth 1 --branch ${HERMES_VERSION} \
     https://github.com/outsourc-e/hermes-workspace.git /opt/hermes-workspace
 WORKDIR /opt/hermes-workspace
-RUN pnpm install
+# Disable pnpm release age policy to allow very recently published packages
+RUN pnpm config set minimum-release-age 0 \
+    && echo "minimum-release-age=0" >> .npmrc \
+    && pnpm install
 RUN pnpm build
 
 # ---------------------------------------------------------------------------
