@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv \
     nano \
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure XRDP to use XFCE
@@ -38,6 +41,9 @@ RUN echo xfce4-session > /etc/skel/.xsession \
 
 # Fix XRDP start bug in some Debian containers
 RUN sed -i 's/test -x \/etc\/X11\/Xsession/test -x \/etc\/X11\/Xsession || true/' /etc/xrdp/startwm.sh
+
+# Install pip packages globally
+RUN pip3 install agent-reach || true
 
 # ---------------------------------------------------------------------------
 # 2. Node.js 22 & Bun & pnpm
@@ -76,6 +82,11 @@ RUN npm install -g \
     kiro \
     command-code@latest \
     antigravity@latest \
+    @openai/codex \
+    officecli \
+    postiz \
+    agent-reach \
+    zcode \
     || true
 
 # ---------------------------------------------------------------------------

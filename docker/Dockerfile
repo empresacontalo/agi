@@ -40,6 +40,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     libreoffice \
     poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
@@ -59,21 +62,27 @@ RUN npm install -g bun
 # ---------------------------------------------------------------------------
 RUN npm install -g pnpm
 
+# Install python packages globally
+RUN pip install agent-reach || true
+
 # ---------------------------------------------------------------------------
 # CLI Tools (globally available in the workspace)
 # ---------------------------------------------------------------------------
 
-# Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code@latest
-
-# Antigravity CLI
-RUN npm install -g antigravity@latest
-
-# OpenCode CLI
-RUN npm install -g opencode-ai@latest
-
-# CommandCode CLI
-RUN npm install -g command-code@latest
+# Install global CLI tools
+RUN npm install -g \
+    @anthropic-ai/claude-code@latest \
+    antigravity@latest \
+    opencode-ai@latest \
+    command-code@latest \
+    @openai/codex \
+    @google/gemini-cli \
+    officecli \
+    postiz \
+    agent-reach \
+    zcode \
+    cursor-cli \
+    || true
 
 # ---------------------------------------------------------------------------
 # App 1: OmniRoute — AI Gateway (port 4000)
