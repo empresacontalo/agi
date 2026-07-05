@@ -87,6 +87,9 @@ RUN npm install -g \
     postiz \
     agent-reach \
     zcode \
+    remotion \
+    @remotion/cli \
+    hyperframes \
     || true
 
 # ---------------------------------------------------------------------------

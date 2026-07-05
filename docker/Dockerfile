@@ -82,6 +82,9 @@ RUN npm install -g \
     agent-reach \
     zcode \
     cursor-cli \
+    remotion \
+    @remotion/cli \
+    hyperframes \
     || true
 
 # ---------------------------------------------------------------------------
