@@ -32,8 +32,8 @@ HERMES_ENV_FILE="$HERMES_HOME/.env"
 
 echo "[entrypoint] Bootstrapping hermes-agent config..."
 cat > "$HERMES_ENV_FILE" << EOF
-OPENAI_BASE_URL=http://localhost:4000/v1
-OPENAI_API_KEY=${OMNIROUTE_API_KEY:-${OPENAI_API_KEY:-omniroute-internal}}
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=${OPENAI_API_KEY}
 ${HERMES_LLM_MODEL:+HERMES_MODEL=${HERMES_LLM_MODEL}}
 API_SERVER_ENABLED=true
 API_SERVER_HOST=0.0.0.0

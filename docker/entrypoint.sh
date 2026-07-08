@@ -42,8 +42,8 @@ cat > "$HERMES_ENV_FILE" << EOF
 # ── LLM Backend ─────────────────────────────────────────────────────────────
 # hermes-agent uses OmniRoute as its LLM provider.
 # OmniRoute (localhost:4000) routes to actual providers using the keys below.
-OPENAI_BASE_URL=http://localhost:4000/v1
-OPENAI_API_KEY=${OMNIROUTE_API_KEY:-${OPENAI_API_KEY:-omniroute-internal}}
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=${OPENAI_API_KEY}
 
 # Model hermes-agent will use (must be supported by OmniRoute/your provider)
 ${HERMES_LLM_MODEL:+HERMES_MODEL=${HERMES_LLM_MODEL}}
